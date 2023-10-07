@@ -1,0 +1,102 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: grafana-agent
+  namespace: grafana
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: grafana-agent
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+      - nodes/proxy
+      - nodes/metrics
+      - services
+      - endpoints
+      - pods
+      - events
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingresses
+    verbs:
+      - get
+      - list
+      - watch
+  - nonResourceURLs:
+      - /metrics
+      - /metrics/cadvisor
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: grafana-agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: grafana-agent
+subjects:
+  - kind: ServiceAccount
+    name: grafana-agent
+    namespace: grafana
+---
+apiVersion: monitoring.grafana.com/v1alpha1
+kind: GrafanaAgent
+metadata:
+  name: grafana-agent
+  namespace: grafana
+spec:
+  # configReloaderImage:  europe-west2-docker.pkg.dev/cbx-bsp-ssv-gn3m/common/grafana-operator:config-reloader-v0.62.0
+  # image: europe-west2-docker.pkg.dev/climate-dev-bvd4/common/grafana-operator:agent-v0.35.3
+  # image: europe-west2-docker.pkg.dev/cbx-bsp-ssv-gn3m/common/grafana-operator:agent-v0.35.3
+  image: grafana/agent:v0.35.3 
+  env:
+    - name: http_proxy
+      value: "http://192.168.0.2:3128"
+    - name: https_proxy
+      value: "http://192.168.0.2:3128"
+  
+  integrations:
+    selector:
+      matchLabels:
+        agent: grafana-agent
+  metrics:
+    externalLabels:
+      cluster:  cbx-bsp-npd-uat-gke	
+    instanceSelector:
+      matchLabels:
+        agent: grafana-agent
+    scrapeInterval: 60s
+    # remoteWrite:
+    #   proxyUrl: http://192.168.0.2:3128
+
+      # - basicAuth:
+      #     password:
+      #       key: password
+      #       name: metrics-secret
+      #     username:
+      #       key: username
+      #       name: metrics-secret
+        # tlsConfig:
+        #   insecureSkipVerify: true
+
+  logs:
+    instanceSelector:
+      matchLabels:
+        agent: grafana-agent
+  serviceAccountName: grafana-agent
+
+    # clients:
+    #   proxyUrl: http://192.168.0.2:3128
+  
